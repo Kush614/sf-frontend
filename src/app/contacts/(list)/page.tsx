@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Download, Plus } from "lucide-react";
 import ApiErrorPanel from "@/components/contacts/ApiErrorPanel";
 import ApiStatusBadge from "@/components/contacts/ApiStatusBadge";
 import ContactsTable from "@/components/contacts/ContactsTable";
@@ -56,10 +56,28 @@ export default async function ContactsPage({
           </p>
         </div>
 
-        <Link href="/contacts/new" className={buttonClasses("primary")}>
-          <Plus className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-          New contact
-        </Link>
+        <div className="flex items-center gap-2">
+          {result && result.total > 0 ? (
+            // A plain link, not a fetch — the browser sees the download headers
+            // and saves the file without any client-side blob handling.
+            <a
+              href={
+                query.search
+                  ? `/contacts/vcard?search=${encodeURIComponent(query.search)}`
+                  : "/contacts/vcard"
+              }
+              className={buttonClasses("secondary")}
+            >
+              <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              Export {query.search ? "matches" : "all"}
+            </a>
+          ) : null}
+
+          <Link href="/contacts/new" className={buttonClasses("primary")}>
+            <Plus className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+            New contact
+          </Link>
+        </div>
       </header>
 
       {error ? (
