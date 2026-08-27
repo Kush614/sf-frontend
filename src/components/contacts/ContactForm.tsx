@@ -35,11 +35,18 @@ export type ContactFormAction = (
   formData: FormData,
 ) => Promise<FormState>;
 
-function SubmitButton({ label }: { label: string }) {
+function SubmitButton({
+  label,
+  blocked,
+}: {
+  label: string;
+  /** Something in the form is still producing a value to submit. */
+  blocked?: boolean;
+}) {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" disabled={pending}>
+    <Button type="submit" disabled={pending || blocked}>
       {pending ? (
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
       ) : null}
@@ -79,6 +86,10 @@ export default function ContactForm({
     setSubmission((count) => count + 1);
   }
 
+  // The photo is written into its hidden input only after the browser has
+  // finished resizing it, so submitting mid-resize would send the old value.
+  const [photoProcessing, setPhotoProcessing] = useState(false);
+
   function valueFor(name: ContactTextField): string {
     return state.values?.[name] ?? contact?.[name] ?? "";
   }
@@ -107,6 +118,7 @@ export default function ContactForm({
         defaultValue={valueFor("photo")}
         initials={contact ? initials(contact) : undefined}
         error={state.fieldErrors?.photo}
+        onProcessingChange={setPhotoProcessing}
       />
 
       <AddressesField
@@ -142,7 +154,7 @@ export default function ContactForm({
       ))}
 
       <div className="flex items-center gap-2 border-t border-hairline pt-4">
-        <SubmitButton label={submitLabel} />
+        <SubmitButton label={submitLabel} blocked={photoProcessing} />
         <Link href={cancelHref} className={buttonClasses("secondary")}>
           Cancel
         </Link>

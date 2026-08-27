@@ -56,6 +56,7 @@ export default function PhotoField({
   defaultValue = "",
   initials,
   error,
+  onProcessingChange,
 }: {
   /** Existing photo, so editing a contact carries it through the `PUT`. */
   defaultValue?: string;
@@ -63,6 +64,13 @@ export default function PhotoField({
   initials?: string;
   /** Server-side error for the `photo` field. */
   error?: string;
+  /**
+   * Raised while an image is being resized. The hidden input is only written
+   * once that finishes, so the form must not be submittable until it does —
+   * otherwise the submit sends the *previous* photo and silently drops the one
+   * the user just picked.
+   */
+  onProcessingChange?: (processing: boolean) => void;
 }) {
   const [photo, setPhoto] = useState(defaultValue);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -71,10 +79,15 @@ export default function PhotoField({
 
   const message = localError ?? error;
 
+  function setProcessing(processing: boolean) {
+    setBusy(processing);
+    onProcessingChange?.(processing);
+  }
+
   async function handleFile(file: File | undefined) {
     if (!file) return;
 
-    setBusy(true);
+    setProcessing(true);
     setLocalError(null);
     try {
       const dataUrl = await toAvatarDataUrl(file);
@@ -87,7 +100,7 @@ export default function PhotoField({
     } catch {
       setLocalError("That file could not be read as an image.");
     } finally {
-      setBusy(false);
+      setProcessing(false);
       // Allow re-picking the same file after an error.
       if (fileInput.current) fileInput.current.value = "";
     }
