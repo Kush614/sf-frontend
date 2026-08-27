@@ -2,7 +2,7 @@ import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ContactForm from "@/components/contacts/ContactForm";
-import { makeContact } from "../mocks/handlers";
+import { makeAddress, makeContact } from "../mocks/handlers";
 import type { FormState } from "@/lib/contacts/types";
 
 function renderForm(action: jest.Mock, contact?: ReturnType<typeof makeContact>) {
@@ -123,9 +123,94 @@ describe("ContactForm photo", () => {
   it("clears the photo when Remove is used", async () => {
     const { container } = renderForm(jest.fn(), makeContact({ photo: TINY_PNG }));
 
-    await userEvent.click(screen.getByRole("button", { name: /remove/i }));
+    await userEvent.click(screen.getByRole("button", { name: /remove photo/i }));
 
     expect(photoInput(container)).toHaveValue("");
     expect(screen.getByRole("button", { name: /upload photo/i })).toBeInTheDocument();
+  });
+});
+
+describe("ContactForm addresses", () => {
+  function submittedAddresses(formData: FormData) {
+    return formData.getAll("address_type").map((type, index) => ({
+      type: String(type),
+      city: String(formData.getAll("address_city")[index] ?? ""),
+    }));
+  }
+
+  it("carries existing addresses through the submit, so editing does not wipe them", async () => {
+    // Same trap as the photo: the edit form does a full replace, so addresses
+    // the user never touched still have to be resubmitted.
+    const action = jest.fn<Promise<FormState>, [FormState, FormData]>(
+      async () => ({ status: "idle" }),
+    );
+    renderForm(
+      action,
+      makeContact({
+        addresses: [
+          makeAddress({ id: 1, type: "work", city: "San Francisco" }),
+          makeAddress({ id: 2, type: "home", city: "London" }),
+        ],
+      }),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /create contact/i }));
+
+    await waitFor(() => expect(action).toHaveBeenCalled());
+    expect(submittedAddresses(action.mock.calls[0][1])).toEqual([
+      { type: "work", city: "San Francisco" },
+      { type: "home", city: "London" },
+    ]);
+  });
+
+  it("adds a row that defaults to Home and submits alongside the others", async () => {
+    const action = jest.fn<Promise<FormState>, [FormState, FormData]>(
+      async () => ({ status: "idle" }),
+    );
+    renderForm(action, makeContact({ addresses: [makeAddress({ city: "SF" })] }));
+
+    await userEvent.click(screen.getByRole("button", { name: /add address/i }));
+    const cities = screen.getAllByLabelText(/^city$/i);
+    await userEvent.type(cities[cities.length - 1], "Oslo");
+
+    await userEvent.click(screen.getByRole("button", { name: /create contact/i }));
+
+    await waitFor(() => expect(action).toHaveBeenCalled());
+    expect(submittedAddresses(action.mock.calls[0][1])).toEqual([
+      { type: "work", city: "SF" },
+      { type: "home", city: "Oslo" },
+    ]);
+  });
+
+  it("removes the row the user chose, not the last one", async () => {
+    const action = jest.fn<Promise<FormState>, [FormState, FormData]>(
+      async () => ({ status: "idle" }),
+    );
+    renderForm(
+      action,
+      makeContact({
+        addresses: [
+          makeAddress({ id: 1, type: "work", city: "SF" }),
+          makeAddress({ id: 2, type: "home", city: "London" }),
+          makeAddress({ id: 3, type: "other", city: "Oslo" }),
+        ],
+      }),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /remove address 2/i }));
+    await userEvent.click(screen.getByRole("button", { name: /create contact/i }));
+
+    await waitFor(() => expect(action).toHaveBeenCalled());
+    expect(submittedAddresses(action.mock.calls[0][1])).toEqual([
+      { type: "work", city: "SF" },
+      { type: "other", city: "Oslo" },
+    ]);
+  });
+
+  it("shows an empty state when the contact has no addresses", () => {
+    renderForm(jest.fn(), makeContact({ addresses: [] }));
+
+    expect(screen.getByText(/no addresses yet/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /remove address/i })).toBeNull();
   });
 });

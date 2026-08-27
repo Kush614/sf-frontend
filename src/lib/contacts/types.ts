@@ -3,6 +3,27 @@
  * Field names stay snake_case so payloads map 1:1 onto the wire format.
  */
 
+/** What an address is for. Mirrors the API's `AddressType` enum. */
+export const ADDRESS_TYPES = ["home", "work", "other"] as const;
+export type AddressType = (typeof ADDRESS_TYPES)[number];
+
+/** The API's cap on how many addresses one contact may have. */
+export const MAX_ADDRESSES = 10;
+
+/** `AddressRead` — one postal address belonging to a contact. */
+export interface Address {
+  id: number;
+  type: AddressType;
+  street: string | null;
+  city: string | null;
+  state: string | null;
+  postal_code: string | null;
+  country: string | null;
+}
+
+/** `AddressCreate` — an address on its way to the API, before it has an id. */
+export type AddressInput = Omit<Address, "id">;
+
 /** `ContactRead` — a stored contact, as returned by every contact endpoint. */
 export interface Contact {
   id: number;
@@ -12,14 +33,10 @@ export interface Contact {
   phone: string | null;
   company: string | null;
   job_title: string | null;
-  address: string | null;
-  city: string | null;
-  state: string | null;
-  postal_code: string | null;
-  country: string | null;
   notes: string | null;
   /** Base64 data URL, or `null` to fall back to initials. */
   photo: string | null;
+  addresses: Address[];
   created_at: string;
   updated_at: string;
   full_name: string;
@@ -28,8 +45,17 @@ export interface Contact {
 /** Every editable field, i.e. `ContactCreate` / `ContactReplace`. */
 export type ContactInput = Omit<
   Contact,
-  "id" | "created_at" | "updated_at" | "full_name"
->;
+  "id" | "created_at" | "updated_at" | "full_name" | "addresses"
+> & { addresses: AddressInput[] };
+
+/**
+ * The contact fields that are plain text controls. `addresses` is a list with
+ * its own component, so the form's string-keyed error and value maps exclude it.
+ */
+export type ContactTextField = Exclude<keyof ContactInput, "addresses">;
+
+/** One address row as the form holds it: raw strings, before validation. */
+export type AddressFormValues = Record<keyof AddressInput, string>;
 
 /** `ContactPage` — one page of contacts plus the totals needed to paginate. */
 export interface ContactPage {
@@ -76,9 +102,13 @@ export type FormState = {
   /** Message shown above the form; used for API-level failures. */
   message?: string;
   /** Per-field messages keyed by input name. */
-  fieldErrors?: Partial<Record<keyof ContactInput, string>>;
+  fieldErrors?: Partial<Record<ContactTextField, string>>;
   /** Echo of the submitted values so the form survives a failed round trip. */
-  values?: Partial<Record<keyof ContactInput, string>>;
+  values?: Partial<Record<ContactTextField, string>>;
+  /** Echo of the submitted address rows, so the list survives one too. */
+  addresses?: AddressFormValues[];
+  /** One message per address row, keyed by its position in that list. */
+  addressErrors?: Record<number, string>;
 };
 
 export const EMPTY_FORM_STATE: FormState = { status: "idle" };

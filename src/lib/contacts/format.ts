@@ -1,4 +1,5 @@
-import type { Contact } from "./types";
+import { ADDRESS_TYPES } from "./types";
+import type { Address, AddressInput, AddressType, Contact } from "./types";
 
 /** Presentation helpers shared by the list, the detail page, and the cards. */
 
@@ -43,14 +44,40 @@ export function jobLine(contact: Contact): string | null {
   return contact.job_title ?? contact.company ?? null;
 }
 
+/** Human-readable name for each address type. */
+export const ADDRESS_TYPE_LABELS: Record<AddressType, string> = {
+  home: "Home",
+  work: "Work",
+  other: "Other",
+};
+
 /** Single-line postal address, skipping the parts that are not filled in. */
-export function addressLine(contact: Contact): string | null {
+export function addressLine(address: Address | AddressInput): string | null {
   const parts = [
-    contact.address,
-    contact.city,
-    [contact.state, contact.postal_code].filter(Boolean).join(" "),
-    contact.country,
+    address.street,
+    address.city,
+    [address.state, address.postal_code].filter(Boolean).join(" "),
+    address.country,
   ].filter((part): part is string => Boolean(part && part.trim()));
 
   return parts.length ? parts.join(", ") : null;
+}
+
+export interface AddressGroup {
+  type: AddressType;
+  label: string;
+  addresses: Address[];
+}
+
+/**
+ * Addresses bucketed by type for display, in `ADDRESS_TYPES` order rather than
+ * insertion order, so a contact's Home block does not move when a Work address
+ * is added. Types with no addresses are left out.
+ */
+export function groupAddressesByType(addresses: Address[]): AddressGroup[] {
+  return ADDRESS_TYPES.map((type) => ({
+    type,
+    label: ADDRESS_TYPE_LABELS[type],
+    addresses: addresses.filter((address) => address.type === type),
+  })).filter((group) => group.addresses.length > 0);
 }

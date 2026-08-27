@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { AlertCircle, Loader2 } from "lucide-react";
+import AddressesField from "./AddressesField";
 import PhotoField from "./PhotoField";
 import Field from "@/components/ui/Field";
 import Button, { buttonClasses } from "@/components/ui/Button";
@@ -11,10 +12,23 @@ import { initials } from "@/lib/contacts/format";
 import { CONTACT_FIELD_GROUPS } from "@/lib/contacts/schema";
 import {
   EMPTY_FORM_STATE,
+  type AddressFormValues,
   type Contact,
-  type ContactInput,
+  type ContactTextField,
   type FormState,
 } from "@/lib/contacts/types";
+
+/** Stored addresses as the form holds them: raw strings, nulls as blanks. */
+function toFormValues(contact: Contact | undefined): AddressFormValues[] {
+  return (contact?.addresses ?? []).map((address) => ({
+    type: address.type,
+    street: address.street ?? "",
+    city: address.city ?? "",
+    state: address.state ?? "",
+    postal_code: address.postal_code ?? "",
+    country: address.country ?? "",
+  }));
+}
 
 export type ContactFormAction = (
   state: FormState,
@@ -52,9 +66,13 @@ export default function ContactForm({
 }) {
   const [state, formAction] = useActionState(action, EMPTY_FORM_STATE);
 
-  function valueFor(name: keyof ContactInput): string {
+  function valueFor(name: ContactTextField): string {
     return state.values?.[name] ?? contact?.[name] ?? "";
   }
+
+  // A failed round trip echoes back what was submitted; otherwise start from
+  // what is stored, so an untouched address list survives the replacing PUT.
+  const addresses = state.addresses ?? toFormValues(contact);
 
   return (
     <form action={formAction} noValidate className="space-y-8">
@@ -77,6 +95,8 @@ export default function ContactForm({
         initials={contact ? initials(contact) : undefined}
         error={state.fieldErrors?.photo}
       />
+
+      <AddressesField defaultValues={addresses} errors={state.addressErrors} />
 
       {CONTACT_FIELD_GROUPS.map((group) => (
         <fieldset key={group.title} className="space-y-4">

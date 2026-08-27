@@ -12,7 +12,10 @@ import {
 } from "@/lib/contacts/api";
 import {
   contactInputSchema,
+  formDataToAddresses,
   formDataToValues,
+  zodAddressErrors,
+  zodAddressListError,
   zodFieldErrors,
 } from "@/lib/contacts/schema";
 import type { Contact, FormState } from "@/lib/contacts/types";
@@ -39,14 +42,18 @@ export async function saveContactAction(
   formData: FormData,
 ): Promise<FormState> {
   const values = formDataToValues(formData);
+  const addresses = formDataToAddresses(formData);
 
-  const parsed = contactInputSchema.safeParse(values);
+  const parsed = contactInputSchema.safeParse({ ...values, addresses });
   if (!parsed.success) {
     return {
       status: "error",
-      message: "Please fix the highlighted fields.",
+      message:
+        zodAddressListError(parsed.error) ?? "Please fix the highlighted fields.",
       fieldErrors: zodFieldErrors(parsed.error),
+      addressErrors: zodAddressErrors(parsed.error),
       values,
+      addresses,
     };
   }
 
@@ -58,7 +65,7 @@ export async function saveContactAction(
         : await replaceContact(contactId, parsed.data);
   } catch (error) {
     if (error instanceof ApiUnreachableError) {
-      return { status: "error", message: UNREACHABLE, values };
+      return { status: "error", message: UNREACHABLE, values, addresses };
     }
     if (error instanceof ApiError) {
       if (error.status === 409) {
@@ -83,6 +90,7 @@ export async function saveContactAction(
         status: "error",
         message: apiErrorMessage(error, "The contact could not be saved."),
         values,
+        addresses,
       };
     }
     throw error;
