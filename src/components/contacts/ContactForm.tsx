@@ -4,8 +4,10 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { AlertCircle, Loader2 } from "lucide-react";
+import PhotoField from "./PhotoField";
 import Field from "@/components/ui/Field";
 import Button, { buttonClasses } from "@/components/ui/Button";
+import { initials } from "@/lib/contacts/format";
 import { CONTACT_FIELD_GROUPS } from "@/lib/contacts/schema";
 import {
   EMPTY_FORM_STATE,
@@ -69,6 +71,12 @@ export default function ContactForm({
           <span>{state.message}</span>
         </div>
       ) : null}
+
+      <PhotoField
+        defaultValue={valueFor("photo")}
+        initials={contact ? initials(contact) : undefined}
+        error={state.fieldErrors?.photo}
+      />
 
       {CONTACT_FIELD_GROUPS.map((group) => (
         <fieldset key={group.title} className="space-y-4">

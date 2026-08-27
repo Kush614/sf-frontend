@@ -88,3 +88,44 @@ describe("ContactForm", () => {
     );
   });
 });
+
+describe("ContactForm photo", () => {
+  const TINY_PNG =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
+  function photoInput(container: HTMLElement) {
+    return container.querySelector<HTMLInputElement>('input[name="photo"]');
+  }
+
+  it("carries an existing photo through the submit, so editing does not wipe it", async () => {
+    // The edit form does a full replace: a photo the user never touched still
+    // has to be resubmitted or the PUT clears it.
+    const action = jest.fn<Promise<FormState>, [FormState, FormData]>(
+      async () => ({ status: "idle" }),
+    );
+    const { container } = renderForm(action, makeContact({ photo: TINY_PNG }));
+
+    expect(photoInput(container)).toHaveValue(TINY_PNG);
+
+    await userEvent.click(screen.getByRole("button", { name: /create contact/i }));
+
+    await waitFor(() => expect(action).toHaveBeenCalled());
+    expect(action.mock.calls[0][1].get("photo")).toBe(TINY_PNG);
+  });
+
+  it("submits an empty photo when the contact has none", () => {
+    const { container } = renderForm(jest.fn(), makeContact());
+
+    expect(photoInput(container)).toHaveValue("");
+    expect(screen.getByRole("button", { name: /upload photo/i })).toBeEnabled();
+  });
+
+  it("clears the photo when Remove is used", async () => {
+    const { container } = renderForm(jest.fn(), makeContact({ photo: TINY_PNG }));
+
+    await userEvent.click(screen.getByRole("button", { name: /remove/i }));
+
+    expect(photoInput(container)).toHaveValue("");
+    expect(screen.getByRole("button", { name: /upload photo/i })).toBeInTheDocument();
+  });
+});
