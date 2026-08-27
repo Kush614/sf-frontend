@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { AlertCircle, Loader2 } from "lucide-react";
+import AddressesField from "./AddressesField";
 import PhotoField from "./PhotoField";
 import Field from "@/components/ui/Field";
 import Button, { buttonClasses } from "@/components/ui/Button";
@@ -11,10 +12,23 @@ import { initials } from "@/lib/contacts/format";
 import { CONTACT_FIELD_GROUPS } from "@/lib/contacts/schema";
 import {
   EMPTY_FORM_STATE,
+  type AddressFormValues,
   type Contact,
-  type ContactInput,
+  type ContactTextField,
   type FormState,
 } from "@/lib/contacts/types";
+
+/** Stored addresses as the form holds them: raw strings, nulls as blanks. */
+function toFormValues(contact: Contact | undefined): AddressFormValues[] {
+  return (contact?.addresses ?? []).map((address) => ({
+    type: address.type,
+    street: address.street ?? "",
+    city: address.city ?? "",
+    state: address.state ?? "",
+    postal_code: address.postal_code ?? "",
+    country: address.country ?? "",
+  }));
+}
 
 export type ContactFormAction = (
   state: FormState,
@@ -59,13 +73,30 @@ export default function ContactForm({
 }) {
   const [state, formAction] = useActionState(action, EMPTY_FORM_STATE);
 
+  // React resets this form's uncontrolled fields once the action resolves, and
+  // a rejected save is an ordinary resolved return — so the address rows would
+  // be wiped just when the user needs to see what they typed. `useActionState`
+  // hands back a new object per result, so this counter ticks once per
+  // submission and never on an ordinary re-render; using it as a key remounts
+  // the rows from the echoed submission, after the reset rather than before it.
+  const [lastResult, setLastResult] = useState(state);
+  const [submission, setSubmission] = useState(0);
+  if (lastResult !== state) {
+    setLastResult(state);
+    setSubmission((count) => count + 1);
+  }
+
   // The photo is written into its hidden input only after the browser has
   // finished resizing it, so submitting mid-resize would send the old value.
   const [photoProcessing, setPhotoProcessing] = useState(false);
 
-  function valueFor(name: keyof ContactInput): string {
+  function valueFor(name: ContactTextField): string {
     return state.values?.[name] ?? contact?.[name] ?? "";
   }
+
+  // A failed round trip echoes back what was submitted; otherwise start from
+  // what is stored, so an untouched address list survives the replacing PUT.
+  const addresses = state.addresses ?? toFormValues(contact);
 
   return (
     <form action={formAction} noValidate className="space-y-8">
@@ -88,6 +119,12 @@ export default function ContactForm({
         initials={contact ? initials(contact) : undefined}
         error={state.fieldErrors?.photo}
         onProcessingChange={setPhotoProcessing}
+      />
+
+      <AddressesField
+        key={submission}
+        defaultValues={addresses}
+        errors={state.addressErrors}
       />
 
       {CONTACT_FIELD_GROUPS.map((group) => (

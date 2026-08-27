@@ -2,10 +2,11 @@ import {
   addressLine,
   avatarHue,
   formatTimestamp,
+  groupAddressesByType,
   initials,
   jobLine,
 } from "@/lib/contacts/format";
-import { makeContact } from "../../mocks/handlers";
+import { makeAddress, makeContact } from "../../mocks/handlers";
 
 describe("initials", () => {
   it("takes the first letter of each name", () => {
@@ -51,20 +52,49 @@ describe("jobLine", () => {
 
 describe("addressLine", () => {
   it("skips the parts that are not filled in", () => {
-    expect(addressLine(makeContact())).toBe("San Francisco, CA, USA");
+    expect(addressLine(makeAddress())).toBe("San Francisco, CA, USA");
   });
 
   it("pairs the state with the postal code", () => {
     expect(
-      addressLine(makeContact({ address: "1 Market St", postal_code: "94105" })),
+      addressLine(makeAddress({ street: "1 Market St", postal_code: "94105" })),
     ).toBe("1 Market St, San Francisco, CA 94105, USA");
   });
 
   it("returns null when there is no address at all", () => {
     expect(
       addressLine(
-        makeContact({ city: null, state: null, country: null, postal_code: null }),
+        makeAddress({ city: null, state: null, country: null, postal_code: null }),
       ),
     ).toBeNull();
+  });
+});
+
+describe("groupAddressesByType", () => {
+  it("buckets addresses by type and drops the empty buckets", () => {
+    const groups = groupAddressesByType([
+      makeAddress({ id: 1, type: "work", city: "SF" }),
+      makeAddress({ id: 2, type: "home", city: "London" }),
+      makeAddress({ id: 3, type: "work", city: "NYC" }),
+    ]);
+
+    expect(groups.map((group) => group.label)).toEqual(["Home", "Work"]);
+    expect(groups[1].addresses.map((address) => address.city)).toEqual([
+      "SF",
+      "NYC",
+    ]);
+  });
+
+  it("orders groups by type, not by insertion, so blocks do not jump", () => {
+    const groups = groupAddressesByType([
+      makeAddress({ id: 1, type: "other" }),
+      makeAddress({ id: 2, type: "home" }),
+    ]);
+
+    expect(groups.map((group) => group.type)).toEqual(["home", "other"]);
+  });
+
+  it("returns nothing for a contact with no addresses", () => {
+    expect(groupAddressesByType([])).toEqual([]);
   });
 });

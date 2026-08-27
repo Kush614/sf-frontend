@@ -2,12 +2,17 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, Pencil } from "lucide-react";
+import { ChevronLeft, MapPin, Pencil } from "lucide-react";
 import ContactAvatar from "@/components/contacts/ContactAvatar";
 import DeleteContactButton from "@/components/contacts/DeleteContactButton";
 import { buttonClasses } from "@/components/ui/Button";
 import { getContact } from "@/lib/contacts/api";
-import { addressLine, formatTimestamp, jobLine } from "@/lib/contacts/format";
+import {
+  addressLine,
+  formatTimestamp,
+  groupAddressesByType,
+  jobLine,
+} from "@/lib/contacts/format";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -43,7 +48,7 @@ export default async function ContactDetailPage({ params }: PageProps) {
   if (!contact) notFound();
 
   const subtitle = jobLine(contact);
-  const address = addressLine(contact);
+  const addressGroups = groupAddressesByType(contact.addresses);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
@@ -102,13 +107,47 @@ export default async function ContactDetailPage({ params }: PageProps) {
         </Row>
         <Row label="Company">{contact.company}</Row>
         <Row label="Job title">{contact.job_title}</Row>
-        <Row label="Address">{address}</Row>
         <Row label="Notes">
           {contact.notes ? (
             <span className="whitespace-pre-wrap">{contact.notes}</span>
           ) : null}
         </Row>
       </dl>
+
+      <section className="rounded-lg border border-border bg-card">
+        <h2 className="border-b border-hairline px-4 py-3 font-display text-sm font-semibold text-foreground">
+          Addresses
+        </h2>
+
+        {addressGroups.length ? (
+          <dl>
+            {addressGroups.map((group) => (
+              <div
+                key={group.type}
+                className="grid gap-1 border-b border-hairline px-4 py-3 last:border-b-0 sm:grid-cols-[10rem_1fr] sm:gap-4"
+              >
+                <dt className="text-[13px] text-muted-foreground">
+                  {group.label}
+                </dt>
+                <dd className="space-y-1.5 text-sm text-foreground">
+                  {group.addresses.map((address) => (
+                    <p key={address.id} className="break-words">
+                      {addressLine(address) ?? (
+                        <span className="text-muted-foreground/50">—</span>
+                      )}
+                    </p>
+                  ))}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <p className="flex items-center gap-2 px-4 py-6 text-[13px] text-muted-foreground">
+            <MapPin className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+            No addresses on file.
+          </p>
+        )}
+      </section>
 
       <dl className="rounded-lg border border-border bg-card/50 text-[13px]">
         <Row label="ID">
