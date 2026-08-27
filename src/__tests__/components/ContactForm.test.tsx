@@ -88,3 +88,77 @@ describe("ContactForm", () => {
     );
   });
 });
+
+describe("ContactForm photo", () => {
+  const TINY_PNG =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
+  function photoInput(container: HTMLElement) {
+    return container.querySelector<HTMLInputElement>('input[name="photo"]');
+  }
+
+  it("carries an existing photo through the submit, so editing does not wipe it", async () => {
+    // The edit form does a full replace: a photo the user never touched still
+    // has to be resubmitted or the PUT clears it.
+    const action = jest.fn<Promise<FormState>, [FormState, FormData]>(
+      async () => ({ status: "idle" }),
+    );
+    const { container } = renderForm(action, makeContact({ photo: TINY_PNG }));
+
+    expect(photoInput(container)).toHaveValue(TINY_PNG);
+
+    await userEvent.click(screen.getByRole("button", { name: /create contact/i }));
+
+    await waitFor(() => expect(action).toHaveBeenCalled());
+    expect(action.mock.calls[0][1].get("photo")).toBe(TINY_PNG);
+  });
+
+  it("submits an empty photo when the contact has none", () => {
+    const { container } = renderForm(jest.fn(), makeContact());
+
+    expect(photoInput(container)).toHaveValue("");
+    expect(screen.getByRole("button", { name: /upload photo/i })).toBeEnabled();
+  });
+
+  it("clears the photo when Remove is used", async () => {
+    const { container } = renderForm(jest.fn(), makeContact({ photo: TINY_PNG }));
+
+    await userEvent.click(screen.getByRole("button", { name: /remove/i }));
+
+    expect(photoInput(container)).toHaveValue("");
+    expect(screen.getByRole("button", { name: /upload photo/i })).toBeInTheDocument();
+  });
+});
+
+describe("ContactForm photo processing", () => {
+  it("blocks submit while the picked image is still being resized", async () => {
+    // The hidden photo input is written only once resizing finishes, so a
+    // submit during it would send the previous value and drop the new image.
+    let finishResize: (bitmap: ImageBitmap) => void = () => {};
+    const createImageBitmap = jest
+      .fn()
+      .mockReturnValue(new Promise<ImageBitmap>((resolve) => {
+        finishResize = resolve;
+      }));
+    Object.defineProperty(globalThis, "createImageBitmap", {
+      value: createImageBitmap,
+      configurable: true,
+    });
+
+    renderForm(jest.fn());
+    const submit = screen.getByRole("button", { name: /create contact/i });
+    expect(submit).toBeEnabled();
+
+    await userEvent.upload(
+      screen.getByLabelText(/choose a profile photo/i),
+      new File(["x"], "ada.png", { type: "image/png" }),
+    );
+
+    await waitFor(() => expect(submit).toBeDisabled());
+
+    // Fail the resize; the form must become submittable again rather than
+    // stranding the user on a permanently disabled button.
+    finishResize(undefined as unknown as ImageBitmap);
+    await waitFor(() => expect(submit).toBeEnabled());
+  });
+});

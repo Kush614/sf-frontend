@@ -1,11 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { AlertCircle, Loader2 } from "lucide-react";
+import PhotoField from "./PhotoField";
 import Field from "@/components/ui/Field";
 import Button, { buttonClasses } from "@/components/ui/Button";
+import { initials } from "@/lib/contacts/format";
 import { CONTACT_FIELD_GROUPS } from "@/lib/contacts/schema";
 import {
   EMPTY_FORM_STATE,
@@ -19,11 +21,18 @@ export type ContactFormAction = (
   formData: FormData,
 ) => Promise<FormState>;
 
-function SubmitButton({ label }: { label: string }) {
+function SubmitButton({
+  label,
+  blocked,
+}: {
+  label: string;
+  /** Something in the form is still producing a value to submit. */
+  blocked?: boolean;
+}) {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" disabled={pending}>
+    <Button type="submit" disabled={pending || blocked}>
       {pending ? (
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
       ) : null}
@@ -50,6 +59,10 @@ export default function ContactForm({
 }) {
   const [state, formAction] = useActionState(action, EMPTY_FORM_STATE);
 
+  // The photo is written into its hidden input only after the browser has
+  // finished resizing it, so submitting mid-resize would send the old value.
+  const [photoProcessing, setPhotoProcessing] = useState(false);
+
   function valueFor(name: keyof ContactInput): string {
     return state.values?.[name] ?? contact?.[name] ?? "";
   }
@@ -69,6 +82,13 @@ export default function ContactForm({
           <span>{state.message}</span>
         </div>
       ) : null}
+
+      <PhotoField
+        defaultValue={valueFor("photo")}
+        initials={contact ? initials(contact) : undefined}
+        error={state.fieldErrors?.photo}
+        onProcessingChange={setPhotoProcessing}
+      />
 
       {CONTACT_FIELD_GROUPS.map((group) => (
         <fieldset key={group.title} className="space-y-4">
@@ -97,7 +117,7 @@ export default function ContactForm({
       ))}
 
       <div className="flex items-center gap-2 border-t border-hairline pt-4">
-        <SubmitButton label={submitLabel} />
+        <SubmitButton label={submitLabel} blocked={photoProcessing} />
         <Link href={cancelHref} className={buttonClasses("secondary")}>
           Cancel
         </Link>

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { photoError } from "./photo";
 import type { ContactInput } from "./types";
 
 /**
@@ -49,6 +50,18 @@ export const contactInputSchema = z.object({
   notes: z
     .string()
     .trim()
+    .transform((value) => value || null)
+    .nullable()
+    .default(null),
+  // Not a typed-in field: `PhotoField` writes a data URL into a hidden input.
+  // Re-checked here so a hand-crafted POST cannot skip the browser's checks.
+  photo: z
+    .string()
+    .trim()
+    .superRefine((value, ctx) => {
+      const message = value ? photoError(value) : null;
+      if (message) ctx.addIssue({ code: "custom", message });
+    })
     .transform((value) => value || null)
     .nullable()
     .default(null),
@@ -214,14 +227,20 @@ export const CONTACT_FIELDS: ContactFieldSpec[] = CONTACT_FIELD_GROUPS.flatMap(
   (group) => group.fields,
 );
 
+/**
+ * Every input name the form submits. `CONTACT_FIELD_GROUPS` only covers the
+ * text controls, so the photo — rendered by its own component — is added here.
+ */
+const SUBMITTED_FIELDS: (keyof ContactInput)[] = [
+  ...CONTACT_FIELDS.map((field) => field.name),
+  "photo",
+];
+
 /** Pull the contact fields out of a submitted form, as raw strings. */
 export function formDataToValues(
   formData: FormData,
 ): Record<keyof ContactInput, string> {
   return Object.fromEntries(
-    CONTACT_FIELDS.map((field) => [
-      field.name,
-      String(formData.get(field.name) ?? ""),
-    ]),
+    SUBMITTED_FIELDS.map((name) => [name, String(formData.get(name) ?? "")]),
   ) as Record<keyof ContactInput, string>;
 }
