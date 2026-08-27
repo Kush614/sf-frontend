@@ -129,3 +129,36 @@ describe("ContactForm photo", () => {
     expect(screen.getByRole("button", { name: /upload photo/i })).toBeInTheDocument();
   });
 });
+
+describe("ContactForm photo processing", () => {
+  it("blocks submit while the picked image is still being resized", async () => {
+    // The hidden photo input is written only once resizing finishes, so a
+    // submit during it would send the previous value and drop the new image.
+    let finishResize: (bitmap: ImageBitmap) => void = () => {};
+    const createImageBitmap = jest
+      .fn()
+      .mockReturnValue(new Promise<ImageBitmap>((resolve) => {
+        finishResize = resolve;
+      }));
+    Object.defineProperty(globalThis, "createImageBitmap", {
+      value: createImageBitmap,
+      configurable: true,
+    });
+
+    renderForm(jest.fn());
+    const submit = screen.getByRole("button", { name: /create contact/i });
+    expect(submit).toBeEnabled();
+
+    await userEvent.upload(
+      screen.getByLabelText(/choose a profile photo/i),
+      new File(["x"], "ada.png", { type: "image/png" }),
+    );
+
+    await waitFor(() => expect(submit).toBeDisabled());
+
+    // Fail the resize; the form must become submittable again rather than
+    // stranding the user on a permanently disabled button.
+    finishResize(undefined as unknown as ImageBitmap);
+    await waitFor(() => expect(submit).toBeEnabled());
+  });
+});

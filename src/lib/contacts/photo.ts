@@ -32,6 +32,20 @@ const DATA_URL = /^data:([\w.+-]+\/[\w.+-]+);base64,([A-Za-z0-9+/]*={0,2})$/;
 
 export const MAX_PHOTO_MB = MAX_PHOTO_BYTES / (1024 * 1024);
 
+/**
+ * Is this a decodable base64 payload?
+ *
+ * The data-URL pattern above only checks the alphabet, which lets through
+ * lengths that cannot decode — `A` on its own, or nothing but padding. base64
+ * works in four-character groups, and a final group of one character encodes no
+ * bytes.
+ */
+function isDecodableBase64(payload: string): boolean {
+  if (payload.length === 0 || payload.length % 4 !== 0) return false;
+  const unpadded = payload.replace(/=+$/, "");
+  return unpadded.length > 0 && unpadded.length % 4 !== 1;
+}
+
 /** Bytes a base64 payload decodes to, without decoding it. */
 function decodedLength(base64: string): number {
   const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
@@ -55,7 +69,7 @@ export function photoError(value: string): string | null {
   if (!(PHOTO_MEDIA_TYPES as readonly string[]).includes(mediaType.toLowerCase())) {
     return `Photo must be a ${PHOTO_MEDIA_TYPES.map((type) => type.replace("image/", "")).join(", ")} image`;
   }
-  if (payload.length === 0) return "Photo must not be empty";
+  if (!isDecodableBase64(payload)) return "Photo must be an image file";
   if (decodedLength(payload) > MAX_PHOTO_BYTES) {
     return `Photo must be ${MAX_PHOTO_MB} MB or smaller`;
   }
