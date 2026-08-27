@@ -42,8 +42,12 @@ The landing route (`/` redirects here). What to check, top to bottom:
   selector. Both write to the URL, so the state survives a reload and is
   shareable.
 - **Table** — sortable `Name` and `Email` headers (the arrow shows the active
-  column and direction), an initials avatar per row, `Job title at Company` as
-  the subtitle, and per-row pencil (edit) and trash (delete) actions.
+  column and direction), an avatar per row, `Job title at Company` as the
+  subtitle, and per-row pencil (edit) and trash (delete) actions. A contact with
+  a photo shows it as a circular thumbnail; one without falls back to their
+  initials, at the same size, so rows stay aligned either way.
+- **Export all** — downloads every contact as one vCard file. With a search
+  active it exports the matches and the button says so.
 - **Footer row** — `Showing 1–3 of 3` with Previous/Next, both disabled on a
   single page.
 - **Version stamp** — `web v0.1.0 (build 2 · 8ce2dc0)` at the bottom of every
@@ -63,12 +67,35 @@ Click a row to get here. It confirms the detail read path works end to end:
 - **Header** — avatar, name, and `Job title at Company`, with **Edit**
   (`/contacts/[id]/edit`) and a destructive **Delete** that asks before it acts.
 - **Field table** — email and phone rendered as `mailto:` / `tel:` links, then
-  company, job title, address, and notes. Empty optional fields show `—` rather
-  than collapsing, so the shape of the record stays readable.
+  company, job title, and notes. Empty optional fields show `—` rather than
+  collapsing, so the shape of the record stays readable.
+- **Addresses** — a contact has as many as it needs, each marked Home, Work, or
+  Other, grouped under those headings. Two Work addresses sit together under one
+  heading rather than repeating it, and a contact with none gets an empty state
+  instead of a blank card.
+
+  ![Addresses grouped by type](docs/addresses.png)
+
+- **vCard** — downloads this contact as a `.vcf`, carrying every address with
+  its type and the photo inline, ready to import into a phone.
 - **Metadata table** — `ID`, `Created`, and `Last updated` in UTC, monospaced.
 
 Hand-editing the URL to an ID that does not exist gives you the styled 404 page
 (`src/app/not-found.tsx`), not a stack trace — that is also worth a quick try.
+
+### `/contacts/[id]/edit` — the form
+
+The photo picker resizes the chosen image in the browser before it is uploaded,
+so what gets stored is avatar-sized rather than whatever came off a phone:
+
+![The photo picker, showing the current photo with Replace and Remove](docs/photo-field.png)
+
+Addresses are rows you add and remove, each with its own type:
+
+![Repeatable address rows, each with a Home / Work / Other type](docs/address-rows.png)
+
+Both sections carry their existing values through the form's replacing `PUT`, so
+editing an unrelated field does not wipe a contact's photo or addresses.
 
 ## Scripts
 
