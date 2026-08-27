@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { AlertCircle, Loader2 } from "lucide-react";
@@ -35,11 +35,18 @@ export type ContactFormAction = (
   formData: FormData,
 ) => Promise<FormState>;
 
-function SubmitButton({ label }: { label: string }) {
+function SubmitButton({
+  label,
+  blocked,
+}: {
+  label: string;
+  /** Something in the form is still producing a value to submit. */
+  blocked?: boolean;
+}) {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" disabled={pending}>
+    <Button type="submit" disabled={pending || blocked}>
       {pending ? (
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
       ) : null}
@@ -65,6 +72,23 @@ export default function ContactForm({
   cancelHref: string;
 }) {
   const [state, formAction] = useActionState(action, EMPTY_FORM_STATE);
+
+  // React resets this form's uncontrolled fields once the action resolves, and
+  // a rejected save is an ordinary resolved return — so the address rows would
+  // be wiped just when the user needs to see what they typed. `useActionState`
+  // hands back a new object per result, so this counter ticks once per
+  // submission and never on an ordinary re-render; using it as a key remounts
+  // the rows from the echoed submission, after the reset rather than before it.
+  const [lastResult, setLastResult] = useState(state);
+  const [submission, setSubmission] = useState(0);
+  if (lastResult !== state) {
+    setLastResult(state);
+    setSubmission((count) => count + 1);
+  }
+
+  // The photo is written into its hidden input only after the browser has
+  // finished resizing it, so submitting mid-resize would send the old value.
+  const [photoProcessing, setPhotoProcessing] = useState(false);
 
   function valueFor(name: ContactTextField): string {
     return state.values?.[name] ?? contact?.[name] ?? "";
@@ -94,9 +118,14 @@ export default function ContactForm({
         defaultValue={valueFor("photo")}
         initials={contact ? initials(contact) : undefined}
         error={state.fieldErrors?.photo}
+        onProcessingChange={setPhotoProcessing}
       />
 
-      <AddressesField defaultValues={addresses} errors={state.addressErrors} />
+      <AddressesField
+        key={submission}
+        defaultValues={addresses}
+        errors={state.addressErrors}
+      />
 
       {CONTACT_FIELD_GROUPS.map((group) => (
         <fieldset key={group.title} className="space-y-4">
@@ -125,7 +154,7 @@ export default function ContactForm({
       ))}
 
       <div className="flex items-center gap-2 border-t border-hairline pt-4">
-        <SubmitButton label={submitLabel} />
+        <SubmitButton label={submitLabel} blocked={photoProcessing} />
         <Link href={cancelHref} className={buttonClasses("secondary")}>
           Cancel
         </Link>

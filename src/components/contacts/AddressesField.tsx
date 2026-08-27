@@ -34,6 +34,13 @@ type Row = AddressFormValues & { key: string };
  * each. That keeps this a plain FormData POST: no index-encoded names to parse,
  * no JSON blob in a hidden field, and the rows that are already on the page
  * still submit if the button that adds more never gets its JavaScript.
+ *
+ * React resets a form's uncontrolled fields once its `action` resolves, and a
+ * rejected save is an ordinary resolved return — so these rows would be wiped
+ * exactly when the user needs to see what they typed. `ContactForm` remounts
+ * this component on each result and seeds it from the echoed submission, which
+ * is why `defaultValues` is the source of truth here rather than a prop that is
+ * only read once.
  */
 export default function AddressesField({
   defaultValues = [],
@@ -61,6 +68,7 @@ export default function AddressesField({
   function removeRow(key: string) {
     setRows((current) => current.filter((row) => row.key !== key));
   }
+
 
   return (
     <fieldset className="space-y-4">
