@@ -69,7 +69,7 @@ Click a row to get here. It confirms the detail read path works end to end:
 - **Field table** — email and phone rendered as `mailto:` / `tel:` links, then
   company, job title, and notes. Empty optional fields show `—` rather than
   collapsing, so the shape of the record stays readable.
-- **Addresses** — a contact has as many as it needs, each marked Home, Work, or
+- **Addresses** — a contact can have up to ten, each marked Home, Work, or
   Other, grouped under those headings. Two Work addresses sit together under one
   heading rather than repeating it, and a contact with none gets an empty state
   instead of a blank card.
