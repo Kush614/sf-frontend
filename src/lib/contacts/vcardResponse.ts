@@ -37,5 +37,10 @@ export async function relayVcard(
     "Cache-Control": "no-store",
   });
 
-  return new Response(await upstream.text(), { headers });
+  // Relay the body as a stream rather than awaiting `.text()`. Reading it here
+  // would hold the whole address book in memory before a single byte reached
+  // the browser — and it happens outside the catch above, so a stall after the
+  // headers arrived would surface as an unhandled 500 rather than the 503 this
+  // function exists to produce.
+  return new Response(upstream.body, { headers });
 }
