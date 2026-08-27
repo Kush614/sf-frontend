@@ -93,6 +93,22 @@ export async function deleteContact(id: number): Promise<void> {
   }
 }
 
+/**
+ * The raw vCard responses, relayed by the download routes.
+ *
+ * These come back as a body plus `Content-Type` / `Content-Disposition` rather
+ * than JSON, so the caller gets the `Response` itself instead of parsed data.
+ */
+export async function getContactVcard(id: number): Promise<Response> {
+  return apiFetch(`${CONTACTS_PATH}/${id}/vcard`, { cache: "no-store" });
+}
+
+export async function exportContactsVcard(search?: string): Promise<Response> {
+  const query = new URLSearchParams();
+  if (search) query.set("search", search);
+  return apiFetch(`${CONTACTS_PATH}/vcard?${query}`, { cache: "no-store" });
+}
+
 export async function getHealth(): Promise<HealthResponse | null> {
   try {
     // The badge is decoration; never let it hold the page open for long.
