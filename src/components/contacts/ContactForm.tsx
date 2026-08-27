@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { AlertCircle, Loader2 } from "lucide-react";
@@ -66,6 +66,19 @@ export default function ContactForm({
 }) {
   const [state, formAction] = useActionState(action, EMPTY_FORM_STATE);
 
+  // React resets this form's uncontrolled fields once the action resolves, and
+  // a rejected save is an ordinary resolved return — so the address rows would
+  // be wiped just when the user needs to see what they typed. `useActionState`
+  // hands back a new object per result, so this counter ticks once per
+  // submission and never on an ordinary re-render; using it as a key remounts
+  // the rows from the echoed submission, after the reset rather than before it.
+  const [lastResult, setLastResult] = useState(state);
+  const [submission, setSubmission] = useState(0);
+  if (lastResult !== state) {
+    setLastResult(state);
+    setSubmission((count) => count + 1);
+  }
+
   function valueFor(name: ContactTextField): string {
     return state.values?.[name] ?? contact?.[name] ?? "";
   }
@@ -96,7 +109,11 @@ export default function ContactForm({
         error={state.fieldErrors?.photo}
       />
 
-      <AddressesField defaultValues={addresses} errors={state.addressErrors} />
+      <AddressesField
+        key={submission}
+        defaultValues={addresses}
+        errors={state.addressErrors}
+      />
 
       {CONTACT_FIELD_GROUPS.map((group) => (
         <fieldset key={group.title} className="space-y-4">

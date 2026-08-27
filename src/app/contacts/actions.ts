@@ -76,6 +76,7 @@ export async function saveContactAction(
             email: apiErrorMessage(error, "This email is already in use."),
           },
           values,
+          addresses,
         };
       }
       if (error.status === 422) {
@@ -84,6 +85,7 @@ export async function saveContactAction(
           message: "The API rejected these values.",
           fieldErrors: toFieldErrors(error),
           values,
+          addresses,
         };
       }
       return {
